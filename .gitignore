@@ -1,0 +1,15 @@
+# Secrets - never commit real credentials
+.env
+
+# Runtime state / per-server chatter data. data.json changes constantly and holds
+# Discord guild IDs + watched streamer lists; the bot creates it automatically.
+data.json
+data.json.bak*
+data.json.corrupt-*
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
