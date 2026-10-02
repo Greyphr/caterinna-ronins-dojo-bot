@@ -18,6 +18,18 @@ logger = logging.getLogger("storage")
 #         "<twitch_login>": {"added_by": 1, "is_live": false,
 #                            "display_name": "...", "profile_image_url": "...",
 #                            "stream_id": "1234567890"}  # optional: id of the announced stream
+#       },
+#       "customs_channel_id": 456,
+#       "timezone": "Africa/Lagos",  # IANA name; set via /settimezone
+#       "events": {
+#         "<event_id>": {
+#           "game": "Marvel Rivals", "type": "Tournament" | "Customs",
+#           "banner_url": "...", "timestamp": 1735130400,
+#           "room_name": "...", "room_password": "...", "created_by": 1,
+#           "channel_id": 456, "message_id": 789,
+#           "ended": false, "reminder_sent": false, "disabled": false,
+#           "reminding_users": [111, 222]
+#         }
 #       }
 #     }
 #   }
@@ -28,7 +40,9 @@ logger = logging.getLogger("storage")
 # startup -- see migrate_legacy().
 #
 # "stream_id" is optional and only exists once a stream has been announced; old
-# records without it keep loading fine.
+# records without it keep loading fine. Likewise, "customs_channel_id",
+# "timezone" and "events" are optional and backfilled with defaults by
+# _guild() for any guild record that predates the customs feature.
 
 
 def _load() -> Dict[str, Any]:
@@ -98,10 +112,16 @@ def _replace_with_retry(src: str) -> None:
 
 
 def _guild(data: Dict[str, Any], guild_id: int) -> Dict[str, Any]:
-    """Get (creating if needed) the settings block for a guild."""
-    return data["guilds"].setdefault(
+    """Get (creating if needed) the settings block for a guild. Also backfills
+    fields added after a guild record was first created (customs_channel_id,
+    timezone, events), so old records keep working without a migration step."""
+    guild = data["guilds"].setdefault(
         str(guild_id), {"channel_id": None, "streamers": {}}
     )
+    guild.setdefault("customs_channel_id", None)
+    guild.setdefault("timezone", None)
+    guild.setdefault("events", {})
+    return guild
 
 
 # ---------- per-guild settings ----------
@@ -254,6 +274,67 @@ def update_streamer_info(
             changed = True
         if changed:
             _save(data)
+
+
+# ---------- per-guild customs/tournament announcements ----------
+
+def get_customs_channel_id(guild_id: int) -> Optional[int]:
+    return _load()["guilds"].get(str(guild_id), {}).get("customs_channel_id")
+
+
+def set_customs_channel_id(guild_id: int, channel_id: int) -> None:
+    data = _load()
+    _guild(data, guild_id)["customs_channel_id"] = channel_id
+    _save(data)
+
+
+def get_timezone(guild_id: int) -> Optional[str]:
+    return _load()["guilds"].get(str(guild_id), {}).get("timezone")
+
+
+def set_timezone(guild_id: int, tz_name: str) -> None:
+    data = _load()
+    _guild(data, guild_id)["timezone"] = tz_name
+    _save(data)
+
+
+def get_events(guild_id: int) -> Dict[str, Any]:
+    return _load()["guilds"].get(str(guild_id), {}).get("events", {})
+
+
+def get_event(guild_id: int, event_id: str) -> Optional[Dict[str, Any]]:
+    return _load()["guilds"].get(str(guild_id), {}).get("events", {}).get(event_id)
+
+
+def create_event(guild_id: int, event_id: str, event: Dict[str, Any]) -> None:
+    data = _load()
+    _guild(data, guild_id)["events"][event_id] = event
+    _save(data)
+
+
+def update_event(guild_id: int, event_id: str, **fields) -> None:
+    data = _load()
+    guild = data["guilds"].get(str(guild_id))
+    if guild and event_id in guild.get("events", {}):
+        guild["events"][event_id].update(fields)
+        _save(data)
+
+
+def add_reminder_user(guild_id: int, event_id: str, user_id: int) -> bool:
+    """Returns True if the user was newly added, False if already reminding
+    or the event/guild doesn't exist."""
+    data = _load()
+    guild = data["guilds"].get(str(guild_id))
+    if not guild:
+        return False
+    event = guild.get("events", {}).get(event_id)
+    if event is None:
+        return False
+    if user_id in event["reminding_users"]:
+        return False
+    event["reminding_users"].append(user_id)
+    _save(data)
+    return True
 
 
 # ---------- migration from the old single-channel format ----------

@@ -13,6 +13,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+import customs
 import storage
 from twitch_api import TwitchAPI, TwitchRateLimited
 
@@ -243,6 +244,8 @@ async def setup_hook():
     await bot.tree.sync()
     if not check_streams.is_running():
         check_streams.start()
+    if not bot.customs_reminder_loop.is_running():
+        bot.customs_reminder_loop.start()
 
 
 bot.setup_hook = setup_hook
@@ -266,6 +269,10 @@ async def on_ready():
         await backfill_legacy_entries()
     except Exception:
         logger.exception("Failed to backfill legacy entries")
+    try:
+        customs.register_persistent_views(bot)
+    except Exception:
+        logger.exception("Failed to register persistent customs views")
 
 
 @bot.event
@@ -665,6 +672,12 @@ async def before_check_streams():
 async def on_check_streams_error(error: BaseException):
     logger.error("check_streams loop crashed: %s", error)
     check_streams.restart()
+
+
+# Registers /create, /end, /settimezone, /setcustomschannel and its reminder
+# loop. Called here (not at the top of the file) because it needs
+# resolve_channel and ANNOUNCE_CHANNEL_TYPES, which are defined above.
+customs.setup(bot, resolve_channel, ANNOUNCE_CHANNEL_TYPES)
 
 
 def main() -> None:

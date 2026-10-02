@@ -139,6 +139,49 @@ time they go live). Each announcement is an embed with an **@everyone ping**
 in the message text followed by a short support line. The @everyone ping is in
 the invite (see section 1) so members are notified every time.
 
+## 6. Custom games / tournament announcements
+
+One-time setup per server (requires **Administrator**):
+```
+/setcustomschannel   (run in the channel you want these announcements posted in)
+/settimezone         (pick from the list — this is how /create interprets times)
+```
+
+To post an announcement:
+```
+/create
+```
+This walks you through: pick the game (currently Marvel Rivals; Blur is listed
+as "coming soon"), pick Tournament or Customs, then a popup asks for the
+banner image URL, date & time (format `MM/DD HH:MM AM/PM`, e.g. `12/25 8:00 PM`,
+interpreted using the server's `/settimezone` setting), room name, and room
+password. The bot posts the announcement with `@everyone`, and everyone sees
+the start time auto-converted to their own local time via Discord's built-in
+timestamp formatting. A **Set Reminder** button on the post DMs anyone who
+clicks it, then DMs them again 15 minutes before the event starts with the
+room name/password. The button auto-disables once the event time passes.
+
+To cancel/end an event early:
+```
+/end
+```
+Pick the event from the autocomplete dropdown (only this server's still-active
+events are listed). The original announcement post is left as-is, but no
+further reminders go out, and everyone who had clicked "Set Reminder" gets a
+DM letting them know it was cancelled.
+
+**Notes:**
+- The banner image URL must be a direct link ending in `.png`, `.jpg`, `.jpeg`,
+  `.gif`, or `.webp` — easiest way to get one: upload the image to any Discord
+  channel, right-click it, and choose "Copy Link."
+- Like the streamer list, this is entirely **per-server**: each server has its
+  own customs channel, timezone, and event list, stored in the same
+  `data.json`. Reminder data and button state survive bot restarts (the
+  reminder loop and persistent-view registration both run at startup,
+  mirroring how `check_streams` and the legacy-data migration already work).
+- `/create`, `/end`, `/setcustomschannel` and `/settimezone` require
+  **Administrator** (see `REQUIRED_PERMS` in `customs.py`).
+
 ## Notes / tweaks
 
 - **Check interval**: change `CHECK_INTERVAL_SECONDS` in `bot.py` (default 60s).
