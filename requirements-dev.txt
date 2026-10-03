@@ -1,0 +1,3 @@
+# Test-only dependencies. Kept out of requirements.txt so the bot itself never
+# installs pytest.
+pytest>=8

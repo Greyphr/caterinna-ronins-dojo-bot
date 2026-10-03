@@ -235,6 +235,7 @@ class MarvelRivalsModal(discord.ui.Modal):
             "message_id": None,
             "ended": False,
             "reminder_sent": False,
+            "started_announced": False,
             "disabled": False,
             "reminding_users": [],
         }
@@ -469,6 +470,38 @@ async def _check_single_event(bot, guild_id: int, event_id: str, event: dict, no
             except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                 continue
         storage.update_event(guild_id, event_id, reminder_sent=True)
+
+    if not event.get("started_announced") and now >= event_dt:
+        for user_id in event.get("reminding_users", []):
+            try:
+                user = bot.get_user(user_id) or await bot.fetch_user(user_id)
+                await user.send(
+                    f"🔴 The Marvel Rivals {event['type'].lower()} is starting now in the Dojo!\n"
+                    f"Room: **{event['room_name']}** | Password: **{event['room_password']}**"
+                )
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                continue
+
+        channel = await _resolve_channel(event["channel_id"])
+        if channel is not None:
+            try:
+                reply_to = (
+                    discord.MessageReference(
+                        message_id=event["message_id"], channel_id=event["channel_id"], fail_if_not_exists=False
+                    )
+                    if event.get("message_id")
+                    else None
+                )
+                await channel.send(
+                    f"🔴 The Marvel Rivals {event['type'].lower()} is starting **now** in the Dojo!\n"
+                    f"Room: **{event['room_name']}** | Password: **{event['room_password']}**",
+                    reference=reply_to,
+                )
+            except discord.HTTPException:
+                logger.exception(
+                    "[%s] Could not post start announcement for event %s", guild_id, event_id
+                )
+        storage.update_event(guild_id, event_id, started_announced=True)
 
     if not event.get("disabled") and now >= event_dt:
         channel = await _resolve_channel(event["channel_id"])

@@ -27,8 +27,8 @@ logger = logging.getLogger("storage")
 #           "banner_url": "...", "timestamp": 1735130400,
 #           "room_name": "...", "room_password": "...", "created_by": 1,
 #           "channel_id": 456, "message_id": 789,
-#           "ended": false, "reminder_sent": false, "disabled": false,
-#           "reminding_users": [111, 222]
+#           "ended": false, "reminder_sent": false, "started_announced": false,
+#           "disabled": false, "reminding_users": [111, 222]
 #         }
 #       }
 #     }
